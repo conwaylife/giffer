@@ -13,45 +13,55 @@ if len(rect)==0:
 if(width>=65536 or height>=65536):
     g.exit("The width or height of the GIF file must be less than 65536 pixels.")
 
-frames = pause = cellsize = gridwidth = vx = vy = filename = "?"
-gridwidth = "2"
-def getparam(msg):
+gens = pause = cellsize = gridwidth = vx = vy = fpg = filename = "?"
+def getparam(msg, init = ""):
     info = "Current parameters:\n"\
-        +"The number of frames: "+frames+"\n"\
+        +"The number of gens: "+gens+"\n"\
         +"The pause time of each frame: "+pause+"centisecs\n"\
         +"The size of each cell: "+cellsize+"px\n"\
-        +"(The width of gridlines: "+gridwidth+"px -- fixed)\n"\
-        +"The speed of the pattern: "+"("+vx+","+vy+")px/frame\n"\
+        +"The width of gridlines: "+gridwidth+"px\n"\
+        +"The speed of the pattern: "+"("+vx+","+vy+")cells/frame\n"\
+        +"The number of frames per gen: "+fpg+" per gen\n"\
         +"The file name: "+filename+"\n\n"
-    return g.getstring(info+msg, "", "Create animated GIF")
-frames = getparam("Enter the number of frames.")          
-pause = getparam("Enter the pause time of each frame (in centisecs.)")
-cellsize = getparam("Enter the size of each cell (in pixels.)")
-# GridLines are 2 pixels in LifeWiki gif format.
-# gridwidth = getparam("Enter the width of gridlines (in pixels, 0 to disable.)")
-vx, vy = getparam("Enter the speed of the pattern (in pixels per frame.)\n ex)(-3,5)px/frame -> -3 5").split()
-filename = getparam("Enter the file name. ex)out.gif")
+    return g.getstring(info+msg, init, "Create animated GIF")
+gens = getparam("Enter the number of gens.", "4")          
+pause = getparam("Enter the pause time of each frame (in centisecs.)", "50")
+cellsize = getparam("Enter the size of each cell (in pixels.)", "14")
+gridwidth = getparam("Enter the width of gridlines (in pixels, 0 to disable.)", "2")
+vx, vy = getparam("Enter the speed of the pattern (in cells per frame.)\n ex)(-3,5)cells/frame -> -3 5", "0 0").split()
+fpg = getparam("Enter the frames per gen(1 for oscillators).", "4")
+filename = getparam("Enter the file name. ex)out.gif", "out.gif")
+getparam("Press OK to continue.")
     
 def tryint(var, name):
     try:
         return int(var)
     except:
         g.exit(name + " is not an integer: " + var)
-frames = tryint(frames, "Number of frames")
+
+
+gens = tryint(gens, "Number of gens")
 pause = tryint(pause, "Pause time")
 cellsize = tryint(cellsize, "Cell Size")
 gridwidth = tryint(gridwidth, "Grid Width")
 vx = tryint(vx, "X velocity")
 vy = tryint(vy, "Y velocity")
+fpg = tryint(fpg, "Frames/gen")
 canvasheight = (cellsize+gridwidth)*height+gridwidth
 canvaswidth = (cellsize+gridwidth)*width+gridwidth
+
+if (cellsize+gridwidth)%(fpg*gens) != 0:
+    g.exit("%s won't be smooth: (%d + %d)/(%d * %d) isn't an integer." % (filename, cellsize, gridwidth, fpg, gens))
+else:
+    modifier = (cellsize+gridwidth)/(fpg*gens)
+
 if(canvaswidth>=65536 or canvasheight>=65536):
     g.exit("The width or height of the GIF file must be less than 65536 pixels."
             + "Width: " + canvaswidth + "Height: " + canvasheight)
 # ------------------------------------------------------------------------------
 def getpx(xrel, yrel, frameidx):
-    xabs = xrel + vx * frameidx
-    yabs = yrel + vy * frameidx
+    xabs = xrel + vx * frameidx * modifier
+    yabs = yrel + vy * frameidx * modifier
     if(xabs%(cellsize+gridwidth)<gridwidth or yabs%(cellsize+gridwidth)<gridwidth):
         return "2"
     else: return str(g.getcell(x+xabs/(cellsize+gridwidth), y+yabs/(cellsize+gridwidth)))
@@ -122,7 +132,7 @@ def compress(lines):
 # ----------------------------------------------------------------------
 header = "GIF89a"
 screendesc = struct.pack("<2HB2b", canvaswidth, canvasheight, 0x91, 0, 0)
-# Colors in colortable: White, Black, LifeWiki Gray, and Black(Unused) (3 bytes each)
+# Colors in colortable: White, Black, Gray, and Black(Unused) (3 bytes each)
 colortable = "\xFF\xFF\xFF\x00\x00\x00\xC6\xC6\xC6\x00\x00\x00"
 applic = "\x21\xFF\x0B" + "NETSCAPE2.0" + struct.pack("<2bHb", 3, 1, 0, 0)
 imagedesc = struct.pack("<4HB", 0, 0, canvaswidth, canvasheight, 0x00)
@@ -133,13 +143,13 @@ except:
     g.exit("Unable to open file.")
 
 gif.write(header + screendesc + colortable + applic)
-for f in xrange(frames):
+for f in xrange(gens*fpg):
     # Graphics control extension
     gif.write("\x21\xF9" + struct.pack("<bBH2b", 4, 0x00, pause, 0, 0))
     # Get data for this frame
     gif.write("," + imagedesc + chr(2) + compress(getdata(f)))
-    g.show(str(f+1)+"/"+str(frames))
-    if(f+1 < frames):
+    g.show(str(f+1)+"/"+str(gens*fpg))
+    if ((fpg == 1) | (f % fpg == fpg - 1)):
         g.run(1)
         g.update()
 gif.close()
