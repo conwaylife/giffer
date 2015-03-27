@@ -20,7 +20,7 @@ def getparam(msg, init = ""):
         +"The pause time of each frame: "+pause+"centisecs\n"\
         +"The size of each cell: "+cellsize+"px\n"\
         +"The width of gridlines: "+gridwidth+"px\n"\
-        +"The speed of the pattern: "+"("+vx+","+vy+")cells/frame\n"\
+        +"The offset for the total period: "+"("+vx+","+vy+")cells\n"\
         +"The number of frames per gen: "+fpg+" per gen\n"\
         +"The file name: "+filename+"\n\n"
     return g.getstring(info+msg, init, "Create animated GIF")
@@ -28,7 +28,7 @@ gens = getparam("Enter the number of gens.", "4")
 pause = getparam("Enter the pause time of each frame (in centisecs.)", "50")
 cellsize = getparam("Enter the size of each cell (in pixels.)", "14")
 gridwidth = getparam("Enter the width of gridlines (in pixels, 0 to disable.)", "2")
-vx, vy = getparam("Enter the speed of the pattern (in cells per frame.)\n ex)(-3,5)cells/frame -> -3 5", "0 0").split()
+vx, vy = getparam("Enter the pattern offset for the total period. ex) -3 5", "0 0").split()
 fpg = getparam("Enter the frames per gen(1 for oscillators).", "4")
 filename = getparam("Enter the file name. ex)out.gif", "out.gif")
 getparam("Press OK to continue.")
@@ -50,18 +50,15 @@ fpg = tryint(fpg, "Frames/gen")
 canvasheight = (cellsize+gridwidth)*height+gridwidth
 canvaswidth = (cellsize+gridwidth)*width+gridwidth
 
-if (cellsize+gridwidth)%(fpg*gens) != 0:
-    g.exit("%s won't be smooth: (%d + %d)/(%d * %d) isn't an integer." % (filename, cellsize, gridwidth, fpg, gens))
-else:
-    modifier = (cellsize+gridwidth)/(fpg*gens)
+modifier = float((cellsize+gridwidth))/(fpg*gens)
 
 if(canvaswidth>=65536 or canvasheight>=65536):
     g.exit("The width or height of the GIF file must be less than 65536 pixels."
             + "Width: " + canvaswidth + "Height: " + canvasheight)
 # ------------------------------------------------------------------------------
 def getpx(xrel, yrel, frameidx):
-    xabs = xrel + vx * frameidx * modifier
-    yabs = yrel + vy * frameidx * modifier
+    xabs = int(xrel) + int(vx * frameidx * modifier)
+    yabs = int(yrel) + int(vy * frameidx * modifier)
     if(xabs%(cellsize+gridwidth)<gridwidth or yabs%(cellsize+gridwidth)<gridwidth):
         return "2"
     else: return str(g.getcell(x+xabs/(cellsize+gridwidth), y+yabs/(cellsize+gridwidth)))
